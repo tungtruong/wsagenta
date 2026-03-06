@@ -1,0 +1,19 @@
+[Unit]
+Description=WSAgentA Telegram Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wsagenta
+Group=wsagenta
+WorkingDirectory=/opt/wsagenta
+EnvironmentFile=/etc/wsagenta.env
+ExecStart=/usr/bin/npm run start:telegram
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

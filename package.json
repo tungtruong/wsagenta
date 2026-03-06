@@ -1,0 +1,25 @@
+{
+  "name": "autonomous-loop-agent",
+  "version": "1.0.0",
+  "description": "Autonomous loop agent using OpenAI Agent SDK",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:task": "node src/index.js \"Create a project summary from local files\"",
+    "start:telegram": "node src/telegram.js",
+    "install:arch-service": "bash scripts/install-arch-service.sh"
+  },
+  "keywords": [
+    "openai",
+    "agent",
+    "autonomous"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@openai/agents": "^0.5.4",
+    "node-telegram-bot-api": "^0.66.0",
+    "zod": "^4.1.5"
+  }
+}
