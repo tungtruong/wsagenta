@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "start:task": "node src/index.js \"Create a project summary from local files\"",
     "start:telegram": "node src/telegram.js",
-    "install:arch-service": "bash scripts/install-arch-service.sh"
+    "install:arch-service": "bash scripts/install-arch-service.sh",
+    "update:arch-service": "bash scripts/update-arch-service.sh"
   },
   "keywords": [
     "openai",

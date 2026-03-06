@@ -105,6 +105,22 @@ Neu can restart:
 sudo systemctl restart wsagenta.service
 ```
 
+## 7) Update tu dong tren Arch Linux
+
+Khi da deploy service, cap nhat len ban moi:
+
+```bash
+cd /opt/wsagenta
+sudo bash scripts/update-arch-service.sh /opt/wsagenta main
+```
+
+Script update se:
+
+- `git fetch` + `reset --hard origin/main`
+- `npm ci --omit=dev`
+- `chown` lai thu muc cho user service
+- restart `wsagenta.service`
+
 ## 5) Bat tim kiem Internet voi Tavily + crawl voi Zyte
 
 Trong `.env`:

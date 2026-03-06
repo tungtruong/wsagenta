@@ -8,6 +8,7 @@ import {
 } from "./agent-runtime.js";
 
 const chatState = new Map();
+let shuttingDownForConflict = false;
 
 function createProgressReporter(bot, chatId) {
   let lastSentAt = 0;
@@ -39,10 +40,18 @@ async function main() {
   bot.on("polling_error", (err) => {
     const message = err?.message || String(err);
     console.error(`[telegram:polling_error] ${message}`);
-    if (message.includes("409 Conflict")) {
+    if (message.includes("409 Conflict") && !shuttingDownForConflict) {
+      shuttingDownForConflict = true;
       console.error(
         "Another bot instance is already polling this token. Stop old process, then run again."
       );
+      // Avoid flooding logs forever; stop this instance and exit.
+      bot
+        .stopPolling({ cancel: true })
+        .catch(() => {})
+        .finally(() => {
+          process.exit(1);
+        });
     }
   });
 
