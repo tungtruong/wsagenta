@@ -26,6 +26,9 @@ Cap nhat:
 
 - `OPENAI_API_KEY`: bat buoc
 - `OPENAI_MODEL`: tuy chon (mac dinh `gpt-4.1-mini`)
+- `ALLOWED_OPENAI_MODELS`: danh sach model duoc phep doi qua Telegram, tach bang dau phay
+- `DEFAULT_RESEARCH_DEPTH`: do sau tim kiem mac dinh cho Tavily (`basic` hoac `advanced`)
+- `CHAT_STATE_FILE`: file JSON luu state per-chat (model/depth/context) de giu sau restart
 - `MAX_TURNS`: so vong lap toi da
 - `AUTO_CONTINUE_ON_MAX_TURNS`: `true/false`, tu dong chay tiep khi cham `MAX_TURNS`
 - `MAX_RUN_SEGMENTS`: so lan tiep tuc toi da (moi lan toi da `MAX_TURNS`)
@@ -67,11 +70,24 @@ npm run start:telegram
 Lenh Telegram ho tro:
 
 - `/start`: khoi dong bot
+- `/help`: hien huong dan cau hinh ngay trong Telegram
 - `/reset`: xoa context hoi thoai cua chat hien tai
 - `/continue`: tiep tuc neu bot dung vi het `MAX_TURNS`
+- `/model list`: xem danh sach model duoc phep
+- `/model show`: xem model hien tai cua chat
+- `/model <ten_model>`: doi model cho chat hien tai
+- `/depth show`: xem do sau nghien cuu hien tai cua chat
+- `/depth <basic|advanced>`: doi do sau nghien cuu (ap dung cho Tavily search)
+- `/settings`: xem model/depth hien tai va mac dinh
 
 Bot se gui them message `[progress] ...` trong luc dang goi tools,
 va giu trang thai `typing` lien tuc de ban thay bot dang chay.
+
+Luu y:
+
+- Cac setting `/model` va `/depth` la theo tung chat Telegram (per-chat).
+- Setting duoc luu vao `CHAT_STATE_FILE`, nen van giu sau khi restart service.
+- Doi model se khong reset context hoi thoai.
 
 ## 6) Cai dat tren Arch Linux thanh service
 
@@ -118,6 +134,7 @@ Script update se:
 
 - `git fetch` + `reset --hard origin/main`
 - `npm ci --omit=dev`
+- them cac bien con thieu vao `/etc/wsagenta.env` tu `.env.example` (khong ghi de bien da co)
 - `chown` lai thu muc cho user service
 - restart `wsagenta.service`
 

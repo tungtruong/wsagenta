@@ -4,6 +4,44 @@ set -euo pipefail
 APP_DIR="${1:-/opt/wsagenta}"
 SERVICE_NAME="wsagenta"
 BRANCH="${2:-main}"
+ENV_FILE="/etc/wsagenta.env"
+EXAMPLE_ENV_FILE="${APP_DIR}/.env.example"
+
+ensure_env_defaults_from_example() {
+  if [[ ! -f "${EXAMPLE_ENV_FILE}" ]]; then
+    echo "WARN: ${EXAMPLE_ENV_FILE} not found; skip env default sync."
+    return
+  fi
+
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    cp "${EXAMPLE_ENV_FILE}" "${ENV_FILE}"
+    chmod 600 "${ENV_FILE}"
+    chown root:root "${ENV_FILE}"
+    echo "Created ${ENV_FILE} from ${EXAMPLE_ENV_FILE}."
+    return
+  fi
+
+  local added=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+
+    local key="${line%%=*}"
+    key="${key//[[:space:]]/}"
+    [[ -z "${key}" ]] && continue
+
+    if ! grep -Eq "^${key}=" "${ENV_FILE}"; then
+      echo "${line}" >> "${ENV_FILE}"
+      added=$((added + 1))
+    fi
+  done < "${EXAMPLE_ENV_FILE}"
+
+  if [[ "${added}" -gt 0 ]]; then
+    echo "Added ${added} missing env key(s) from .env.example to ${ENV_FILE}."
+  else
+    echo "No missing env keys. ${ENV_FILE} is up to date with .env.example."
+  fi
+}
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Please run as root: sudo bash scripts/update-arch-service.sh [app_dir] [branch]"
@@ -29,14 +67,17 @@ git reset --hard "origin/${BRANCH}"
 echo "[4/7] Installing production dependencies..."
 npm ci --omit=dev
 
-echo "[5/7] Fixing ownership..."
+echo "[5/8] Fixing ownership..."
 chown -R wsagenta:wsagenta "${APP_DIR}"
 
-echo "[6/7] Reloading systemd and restarting service..."
+echo "[6/8] Syncing missing env defaults from .env.example..."
+ensure_env_defaults_from_example
+
+echo "[7/8] Reloading systemd and restarting service..."
 systemctl daemon-reload
 systemctl restart "${SERVICE_NAME}.service"
 
-echo "[7/7] Done. Current status:"
+echo "[8/8] Done. Current status:"
 systemctl --no-pager --full status "${SERVICE_NAME}.service" || true
 
 echo "Live logs: journalctl -u ${SERVICE_NAME}.service -f"

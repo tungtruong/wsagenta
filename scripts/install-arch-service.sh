@@ -5,6 +5,43 @@ APP_DIR="${1:-/opt/wsagenta}"
 SERVICE_NAME="wsagenta"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 ENV_FILE="/etc/wsagenta.env"
+EXAMPLE_ENV_FILE="${APP_DIR}/.env.example"
+
+ensure_env_defaults_from_example() {
+  if [[ ! -f "${EXAMPLE_ENV_FILE}" ]]; then
+    echo "WARN: ${EXAMPLE_ENV_FILE} not found; skip env default sync."
+    return
+  fi
+
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    cp "${EXAMPLE_ENV_FILE}" "${ENV_FILE}"
+    chmod 600 "${ENV_FILE}"
+    chown root:root "${ENV_FILE}"
+    echo "Created ${ENV_FILE} from ${EXAMPLE_ENV_FILE}."
+    return
+  fi
+
+  local added=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+
+    local key="${line%%=*}"
+    key="${key//[[:space:]]/}"
+    [[ -z "${key}" ]] && continue
+
+    if ! grep -Eq "^${key}=" "${ENV_FILE}"; then
+      echo "${line}" >> "${ENV_FILE}"
+      added=$((added + 1))
+    fi
+  done < "${EXAMPLE_ENV_FILE}"
+
+  if [[ "${added}" -gt 0 ]]; then
+    echo "Added ${added} missing env key(s) from .env.example to ${ENV_FILE}."
+  else
+    echo "No missing env keys. ${ENV_FILE} is up to date with .env.example."
+  fi
+}
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Please run as root: sudo bash scripts/install-arch-service.sh [app_dir]"
@@ -33,25 +70,9 @@ echo "[4/8] Setting directory permissions..."
 chown -R wsagenta:wsagenta "${APP_DIR}"
 
 echo "[5/8] Creating env file template if missing..."
-if [[ ! -f "${ENV_FILE}" ]]; then
-  cat >"${ENV_FILE}" <<'EOF'
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
-MAX_TURNS=20
-AUTO_CONTINUE_ON_MAX_TURNS=true
-MAX_RUN_SEGMENTS=3
-WORKSPACE_DIR=.
-ENABLE_SHELL_TOOL=false
-TELEGRAM_BOT_TOKEN=
-ENABLE_TAVILY_SEARCH_TOOL=true
-TAVILY_API_KEY=
-ENABLE_ZYTE_WEB_TOOL=true
-ZYTE_API_KEY=
-VERBOSE_AGENT_LOG=true
-EOF
-  chmod 600 "${ENV_FILE}"
-  chown root:root "${ENV_FILE}"
-  echo "Created ${ENV_FILE}. Fill API keys/tokens before starting service."
+ensure_env_defaults_from_example
+if [[ -f "${ENV_FILE}" ]]; then
+  echo "Ensure API keys/tokens are filled in ${ENV_FILE} before starting service."
 fi
 
 echo "[6/8] Installing systemd service..."
@@ -63,7 +84,20 @@ systemctl enable "${SERVICE_NAME}.service"
 
 echo "[7/8] Validating env config..."
 missing=0
-for key in OPENAI_API_KEY TELEGRAM_BOT_TOKEN TAVILY_API_KEY ZYTE_API_KEY; do
+set -a
+# shellcheck disable=SC1090
+source "${ENV_FILE}"
+set +a
+
+required_keys=(OPENAI_API_KEY TELEGRAM_BOT_TOKEN)
+if [[ "${ENABLE_TAVILY_SEARCH_TOOL:-true}" == "true" ]]; then
+  required_keys+=(TAVILY_API_KEY)
+fi
+if [[ "${ENABLE_ZYTE_WEB_TOOL:-false}" == "true" ]]; then
+  required_keys+=(ZYTE_API_KEY)
+fi
+
+for key in "${required_keys[@]}"; do
   if ! grep -E "^${key}=.+" "${ENV_FILE}" >/dev/null 2>&1; then
     echo "Missing ${key} in ${ENV_FILE}"
     missing=1

@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { z } from "zod";
 
 const exec = promisify(execCallback);
+const VALID_RESEARCH_DEPTHS = ["basic", "advanced"];
 
 async function reportProgress(runContext, message) {
   const progressFn = runContext?.context?.progress;
@@ -114,7 +115,7 @@ async function zyteExtract(zyteApiKey, body) {
   return json;
 }
 
-async function tavilySearch(tavilyApiKey, query, maxResults) {
+async function tavilySearch(tavilyApiKey, query, maxResults, searchDepth) {
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -123,7 +124,7 @@ async function tavilySearch(tavilyApiKey, query, maxResults) {
     },
     body: JSON.stringify({
       query,
-      search_depth: "basic",
+      search_depth: searchDepth,
       max_results: maxResults,
       include_answer: "basic",
       include_raw_content: false,
@@ -146,6 +147,28 @@ export function buildRuntimeConfig() {
   }
 
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const allowedModels = String(process.env.ALLOWED_OPENAI_MODELS || model)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!allowedModels.includes(model)) {
+    allowedModels.push(model);
+  }
+
+  const defaultResearchDepth =
+    String(process.env.DEFAULT_RESEARCH_DEPTH || "basic").toLowerCase();
+  if (!VALID_RESEARCH_DEPTHS.includes(defaultResearchDepth)) {
+    throw new Error(
+      `Invalid DEFAULT_RESEARCH_DEPTH=${defaultResearchDepth}. Use one of: ${VALID_RESEARCH_DEPTHS.join(
+        ", "
+      )}.`
+    );
+  }
+
+  const chatStateFile = path.resolve(
+    process.cwd(),
+    process.env.CHAT_STATE_FILE || "./data/chat-state.json"
+  );
   const maxTurns = Number(process.env.MAX_TURNS || 20);
   const autoContinueOnMaxTurns =
     String(process.env.AUTO_CONTINUE_ON_MAX_TURNS || "true").toLowerCase() === "true";
@@ -187,6 +210,9 @@ export function buildRuntimeConfig() {
   return {
     apiKey,
     model,
+    allowedModels,
+    defaultResearchDepth,
+    chatStateFile,
     maxTurns,
     autoContinueOnMaxTurns,
     maxRunSegments,
@@ -201,10 +227,11 @@ export function buildRuntimeConfig() {
   };
 }
 
-export function createWorkspaceAgent(runtimeConfig) {
+export function createWorkspaceAgent(runtimeConfig, overrides = {}) {
   const {
     apiKey,
     model,
+    defaultResearchDepth,
     workspaceDir,
     shellEnabled,
     tavilySearchEnabled,
@@ -214,6 +241,7 @@ export function createWorkspaceAgent(runtimeConfig) {
     verboseAgentLog,
     systemPrompt,
   } = runtimeConfig;
+  const selectedModel = overrides.model || model;
 
   setDefaultOpenAIKey(apiKey);
 
@@ -281,7 +309,10 @@ export function createWorkspaceAgent(runtimeConfig) {
       }),
       execute: async ({ query, topK }, runContext) => {
         await reportProgress(runContext, `Searching web with Tavily: ${query}`);
-        const data = await tavilySearch(tavilyApiKey, query, topK);
+        const depth =
+          runContext?.context?.researchDepth || defaultResearchDepth || "basic";
+        const searchDepth = VALID_RESEARCH_DEPTHS.includes(depth) ? depth : "basic";
+        const data = await tavilySearch(tavilyApiKey, query, topK, searchDepth);
 
         const results = Array.isArray(data?.results)
           ? data.results.slice(0, topK)
@@ -348,7 +379,7 @@ export function createWorkspaceAgent(runtimeConfig) {
   return new Agent({
     name: "Workspace Autonomous Agent",
     instructions: systemPrompt,
-    model,
+    model: selectedModel,
     tools,
   });
 }
