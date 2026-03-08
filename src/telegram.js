@@ -158,12 +158,12 @@ async function main() {
   console.log(`Chat state file: ${runtimeConfig.chatStateFile}`);
   console.log(`Workspace: ${runtimeConfig.workspaceDir}`);
 
-  bot.onText(/^\/start(?:\s|$)/, async (msg) => {
+  bot.onText(/^\/start(?:@[A-Za-z0-9_]+)?(?:\s|$)/, async (msg) => {
     const state = chatState.get(msg.chat.id) || {};
     await bot.sendMessage(msg.chat.id, buildHelpMessage(runtimeConfig, state));
   });
 
-  bot.onText(/^\/help(?:\s|$)/, async (msg) => {
+  bot.onText(/^\/help(?:@[A-Za-z0-9_]+)?(?:\s|$)/, async (msg) => {
     const state = chatState.get(msg.chat.id) || {};
     await bot.sendMessage(
       msg.chat.id,
@@ -171,13 +171,13 @@ async function main() {
     );
   });
 
-  bot.onText(/^\/reset(?:\s|$)/, async (msg) => {
+  bot.onText(/^\/reset(?:@[A-Za-z0-9_]+)?(?:\s|$)/, async (msg) => {
     chatState.delete(msg.chat.id);
     await persistChatState(runtimeConfig);
     await bot.sendMessage(msg.chat.id, "Conversation context was reset for this chat.");
   });
 
-  bot.onText(/^\/model(?:\s+(.*))?$/, async (msg, match) => {
+  bot.onText(/^\/model(?:@[A-Za-z0-9_]+)?(?:\s+(.*))?$/, async (msg, match) => {
     const chatId = msg.chat.id;
     const arg = String(match?.[1] || "").trim();
     const state = chatState.get(chatId) || {};
@@ -212,7 +212,7 @@ async function main() {
     await bot.sendMessage(chatId, `Model updated to: ${selectedModel}`);
   });
 
-  bot.onText(/^\/depth(?:\s+(.*))?$/, async (msg, match) => {
+  bot.onText(/^\/depth(?:@[A-Za-z0-9_]+)?(?:\s+(.*))?$/, async (msg, match) => {
     const chatId = msg.chat.id;
     const arg = String(match?.[1] || "").trim();
     const state = chatState.get(chatId) || {};
@@ -237,7 +237,7 @@ async function main() {
     await bot.sendMessage(chatId, `Research depth updated to: ${selectedDepth}`);
   });
 
-  bot.onText(/^\/settings(?:\s|$)/, async (msg) => {
+  bot.onText(/^\/settings(?:@[A-Za-z0-9_]+)?(?:\s|$)/, async (msg) => {
     const chatId = msg.chat.id;
     const state = chatState.get(chatId) || {};
     const currentModel = pickChatModel(state, runtimeConfig);
@@ -255,7 +255,7 @@ async function main() {
     );
   });
 
-  bot.onText(/^\/continue(?:\s|$)/, async (msg) => {
+  bot.onText(/^\/continue(?:@[A-Za-z0-9_]+)?(?:\s|$)/, async (msg) => {
     const chatId = msg.chat.id;
     const state = chatState.get(chatId) || {};
     if (!state.resumeState) {
